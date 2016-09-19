@@ -1,6 +1,8 @@
 #  coding: utf-8 
 import SocketServer
 
+import os.path
+
 # Copyright 2013 Abram Hindle, Eddie Antonio Santos
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,10 +31,69 @@ import SocketServer
 
 class MyWebServer(SocketServer.BaseRequestHandler):
     
+    global head1
+    global headtype
+    global headlength
+    global response
+    global end1
+    global end2
+    
+    head1 = "HTTP/1.1 "
+    headtype = "Content-type: "
+    headlength = "Content-Length: "
+    response = {200: "200 OK ",
+                302: "302 FOUND ",
+                404: "404 NOT FOUND "}
+    end1 = "\r\n"
+    end2 = "\r\n\r\n"
+    
     def handle(self):
         self.data = self.request.recv(1024).strip()
-        print ("Got a request of: %s\n" % self.data)
-        self.request.sendall("OK")
+        request = self.data.split()
+        requested_url = request[1]
+        url = requested_url
+        
+        #print (url)
+                
+        if os.path.exists("www" + url) or os.path.isdir("www" + url):
+
+            if url.endswith(".css"):
+                f = open("www" + url, "rb")
+                data = os.fstat(f.fileno())
+                self.request.sendall(head1 + response[200] + end1)
+                self.request.sendall(headtype + "text/css" + end1)
+                self.request.sendall(headlength + str(data.st_size) + end2)
+                self.request.sendall(f.read())
+                f.close()
+
+            elif url.endswith(".html"):
+                f = open("www" + url, "rb")
+                data = os.fstat(f.fileno())
+                self.request.sendall(head1 + response[200] + end1)
+                self.request.sendall(headtype + "text/html" + end1)
+                self.request.sendall(headlength + str(data.st_size) + end2)
+                self.request.sendall(f.read())
+                f.close()
+            
+            elif url.endswith("/"):
+                f = open("www" + url + "index.html", "rb")
+                data = os.fstat(f.fileno())
+                self.request.sendall(head1 + response[200] + end1)
+                self.request.sendall(headtype + "text/html" + end1)
+                self.request.sendall(headlength + str(data.st_size) + end2)
+                self.request.sendall(f.read())
+
+            elif not url.endswith("/"):
+                self.request.sendall(head1 + response[302] + end1)
+                self.request.sendall("Location: " + url + "/" + end2)
+
+        else:
+            self.request.sendall(head1 + response[404] + end1)
+            self.request.sendall(headtype + "text/html" + end1)
+            self.request.sendall("Error 404 Page Not Found")
+            
+        self.request.close()
+
 
 if __name__ == "__main__":
     HOST, PORT = "localhost", 8080
